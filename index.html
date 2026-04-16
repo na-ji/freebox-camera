@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Caméra Freebox Delta — Générateur de QR Code de provisionnement</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      line-height: 1.6;
+    }
+
+    header {
+      background: #1d1d1f;
+      color: #f5f5f7;
+      padding: 2rem 1.5rem;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      font-size: 0.95rem;
+      color: #a1a1a6;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #0071e3;
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      margin-top: 0.75rem;
+      letter-spacing: 0.03em;
+    }
+
+    main {
+      max-width: 800px;
+      margin: 2.5rem auto;
+      padding: 0 1.5rem 4rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.05);
+      margin-bottom: 2rem;
+    }
+
+    .card h2 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      color: #1d1d1f;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+      color: #1d1d1f;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 0.6rem 0.85rem;
+      border: 1.5px solid #d2d2d7;
+      border-radius: 8px;
+      font-size: 1rem;
+      background: #fafafa;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      outline: none;
+      font-family: inherit;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: #0071e3;
+      box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+      background: #fff;
+    }
+
+    .help {
+      font-size: 0.78rem;
+      color: #6e6e73;
+      margin-top: 0.3rem;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 0.7rem 1.6rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: #0071e3;
+      color: #fff;
+      width: 100%;
+    }
+
+    .btn-primary:hover { background: #0077ed; }
+    .btn-primary:active { transform: scale(0.98); }
+
+    .btn-download {
+      background: #1d1d1f;
+      color: #fff;
+      font-size: 0.875rem;
+      padding: 0.55rem 1.25rem;
+      margin-top: 1rem;
+    }
+
+    .btn-download:hover { background: #3a3a3c; }
+
+    #result {
+      display: none;
+      text-align: center;
+    }
+
+    #qrcode {
+      display: inline-block;
+      padding: 1rem;
+      background: #fff;
+      border: 1px solid #e5e5ea;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+
+    #qrcode img, #qrcode canvas {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+
+    .payload-box {
+      background: #f5f5f7;
+      border: 1px solid #e5e5ea;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.8rem;
+      word-break: break-all;
+      text-align: left;
+      color: #3a3a3c;
+      margin-top: 0.75rem;
+    }
+
+    .payload-label {
+      font-size: 0.78rem;
+      color: #6e6e73;
+      margin-top: 1rem;
+      margin-bottom: 0.3rem;
+      text-align: left;
+    }
+
+    .instructions ol {
+      padding-left: 1.4rem;
+    }
+
+    .instructions li {
+      margin-bottom: 0.6rem;
+      font-size: 0.925rem;
+    }
+
+    .instructions h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 1.25rem 0 0.6rem;
+      color: #1d1d1f;
+    }
+
+    .compat-note {
+      background: #e8f4fd;
+      border-left: 4px solid #0071e3;
+      padding: 0.85rem 1rem;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.875rem;
+      margin-top: 1rem;
+    }
+
+    .warn-note {
+      background: #fff8e1;
+      border-left: 4px solid #f59e0b;
+      padding: 0.85rem 1rem;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.875rem;
+      margin-top: 1rem;
+    }
+
+    code {
+      background: #f0f0f5;
+      padding: 0.1em 0.4em;
+      border-radius: 4px;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.85em;
+    }
+
+    .led-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      margin-top: 0.75rem;
+    }
+
+    .led-table th {
+      background: #f5f5f7;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid #e5e5ea;
+    }
+
+    .led-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #f0f0f5;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1.5rem;
+      border-top: 1px solid #e5e5ea;
+      font-size: 0.82rem;
+      color: #6e6e73;
+      background: #fff;
+    }
+
+    footer a {
+      color: #0071e3;
+      text-decoration: none;
+    }
+
+    footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 600px) {
+      header h1 { font-size: 1.25rem; }
+      .card { padding: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Caméra Freebox Delta</h1>
+  <p>Générateur de QR Code de provisionnement — utilisez votre caméra sans Freebox Delta</p>
+  <span class="badge">Sercomm F-HACAM01A - RC8310A</span>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>À propos</h2>
+    <p>
+      La caméra du pack sécurité de la <strong>Freebox Delta</strong> (F-HACAM01A) se configure normalement via l'application Freebox.
+      Ce générateur crée le QR Code de provisionnement directement, ce qui vous permet de connecter
+      la caméra à <strong>n'importe quel routeur WiFi WPA2</strong> — sans Freebox Delta, sans compte Free.
+    </p>
+    <div class="compat-note">
+      Le QR Code encode le SSID, le mot de passe WiFi et le nom de la caméra en clair.
+      Aucun compte Free n'est requis. Fonctionne avec tout routeur WPA2.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Générer le QR Code</h2>
+    <form id="qrForm" onsubmit="generateQR(event)">
+
+      <div class="form-group">
+        <label for="ssid">SSID WiFi</label>
+        <input type="text" id="ssid" name="ssid" placeholder="MonRéseau" required maxlength="32" autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label for="wifi_pwd">Mot de passe WiFi</label>
+        <input type="text" id="wifi_pwd" name="wifi_pwd" placeholder="MonMotDePasse" required maxlength="64" autocomplete="off">
+        <p class="help">Exactement le mot de passe WPA2 de votre routeur — aucun chiffrement appliqué</p>
+      </div>
+
+      <div class="form-group">
+        <label for="hostname">Nom de la caméra</label>
+        <input type="text" id="hostname" name="hostname" placeholder="cam01" maxlength="10" value="cam01" autocomplete="off">
+        <p class="help">Identifiant court attribué à la caméra (5–10 caractères alphanumériques)</p>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Générer le QR Code</button>
+    </form>
+
+    <div id="result">
+      <p style="margin-top:1.5rem;font-size:0.875rem;color:#6e6e73;">Scannez ce QR Code avec la caméra :</p>
+      <div id="qrcode"></div>
+      <p class="payload-label">Contenu brut du QR Code :</p>
+      <div class="payload-box" id="payloadDisplay"></div>
+      <p class="payload-label" style="margin-top:1rem;">Identifiants HTTP/RTSP de la caméra après provisionnement :</p>
+      <div class="payload-box" style="font-size:0.875rem;line-height:1.7;">
+        Utilisateur : <strong>freeboxcam</strong><br>
+        Mot de passe : <strong id="camPasswordDisplay">—</strong>
+      </div>
+      <p class="help" style="margin-top:0.5rem;">
+        Calculé automatiquement : <code>base64(MD5("freeboxcam" + mot&nbsp;de&nbsp;passe&nbsp;WiFi))[:8]</code>
+        — <a href="https://github.com/na-ji/freebox-camera/blob/main/docs/provisionnement-qr.md#mot-de-passe-http-apr%C3%A8s-provisionnement-par-qr-code" style="color:#0071e3;text-decoration:none;">comment ça fonctionne ?</a>
+      </p>
+      <br>
+      <button class="btn btn-download" onclick="downloadQR()">Télécharger l'image PNG</button>
+    </div>
+  </div>
+
+  <div class="card instructions">
+    <h2>Utilisation du QR Code</h2>
+
+    <h3>Étapes de provisionnement</h3>
+    <ol>
+      <li>
+        <strong>Mettez la caméra sous tension.</strong> Attendez que la LED clignote lentement en orange —
+        la caméra est en mode provisionnement (<code>paired=0</code>).
+      </li>
+      <li>
+        <strong>Présentez le QR Code</strong> face à l'objectif de la caméra, à environ 20–40 cm.
+        La caméra capture des images en continu et décode le QR via <code>zbarimg</code>.
+      </li>
+      <li>
+        <strong>Attendez la LED verte fixe</strong> — la caméra a lu le QR, s'est connectée au WiFi
+        et démarre le flux vidéo.
+      </li>
+      <li>
+        <strong>Trouvez l'adresse IP</strong> attribuée par votre routeur (via l'interface DHCP ou un
+        scan réseau : <code>nmap -sn 192.168.1.0/24</code>). Le hostname DHCP sera celui que vous avez saisi.
+      </li>
+    </ol>
+    <div class="form-group" style="margin:0.75rem 0 1rem;">
+      <label for="cam_ip">Adresse IP de la caméra</label>
+      <input type="text" id="cam_ip" name="cam_ip" placeholder="192.168.1.x" maxlength="15" autocomplete="off" oninput="updateIP(this.value)">
+      <p class="help">Met à jour les URLs des flux ci-dessous en temps réel</p>
+    </div>
+    <ol start="5">
+      <li>
+        <strong>Accédez aux flux</strong> avec les identifiants : <code>freeboxcam</code> /
+        <code id="instrPassword">voir mot de passe calculé ci-dessus</code>.
+      </li>
+    </ol>
+
+    <h3>Comportement de la LED</h3>
+    <table class="led-table">
+      <thead>
+        <tr><th>État LED</th><th>Signification</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Orange clignotant lent</td><td>Mode provisionnement — attente QR Code</td></tr>
+        <tr><td>Orange clignotant rapide</td><td>Connexion WiFi en cours</td></tr>
+        <tr><td>Vert fixe</td><td>Opérationnel — flux vidéo actif</td></tr>
+        <tr><td>Rouge fixe</td><td>Erreur (redémarrez la caméra)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>URLs des flux vidéo</h3>
+    <p style="margin-bottom:0.5rem;font-size:0.875rem;">Remplacez <code>&lt;IP&gt;</code> par l'adresse de votre caméra :</p>
+    <ul style="padding-left:1.4rem;font-size:0.875rem;">
+      <li>HLS : <code>http://freeboxcam:<span class="cam-pwd">&lt;MOT_DE_PASSE&gt;</span>@<span class="cam-ip">&lt;IP&gt;</span>/img/stream.m3u8</code></li>
+      <li>Snapshot JPEG : <code>http://freeboxcam:<span class="cam-pwd">&lt;MOT_DE_PASSE&gt;</span>@<span class="cam-ip">&lt;IP&gt;</span>/img/snapshot.cgi</code></li>
+      <li>RTSP HD : <code>rtsp://freeboxcam:<span class="cam-pwd">&lt;MOT_DE_PASSE&gt;</span>@<span class="cam-ip">&lt;IP&gt;</span>:554/live.sdp</code></li>
+      <li>RTSP SD : <code>rtsp://freeboxcam:<span class="cam-pwd">&lt;MOT_DE_PASSE&gt;</span>@<span class="cam-ip">&lt;IP&gt;</span>:554/live2.sdp</code></li>
+    </ul>
+    <div class="warn-note" style="margin-top:0.75rem;">
+      <strong>⚠️ Activation requise avant le premier accès RTSP</strong><br>
+      Les chemins RTSP (<code>sp_uri</code>, <code>sp_uri2</code>) sont <strong>vides par défaut</strong> après provisionnement.
+      Sans cette étape, VLC et les autres lecteurs retourneront une erreur 404.<br><br>
+      Exécutez cette commande une seule fois :
+      <pre style="margin:0.6rem 0 0;background:#fff8e1;border-radius:4px;padding:0.5rem 0.75rem;font-size:0.78rem;overflow-x:auto;white-space:pre;">curl -u freeboxcam:<span class="cam-pwd">&lt;MOT_DE_PASSE&gt;</span> "http://<span class="cam-ip">&lt;IP&gt;</span>/adm/set_group.cgi?group=H264&amp;sp_uri=live.sdp&amp;sp_uri2=live2.sdp"</pre>
+      Les flux RTSP deviennent alors accessibles. Générez le QR Code et renseignez l'adresse IP ci-dessus pour obtenir les URLs complètes.
+      <a href="https://github.com/na-ji/freebox-camera/blob/main/docs/integration-domotique.md#configuration-pr%C3%A9alable-des-uris-rtsp" style="display:inline-block;margin-top:0.4rem;color:#92400e;font-size:0.8rem;">Documentation complète →</a>
+    </div>
+
+    <div class="warn-note">
+      <strong>Re-provisionnement :</strong> Si vous devez changer de réseau WiFi, effectuez un
+      reset usine via <code>http://<span class="cam-ip">&lt;IP&gt;</span>/adm/reset_to_default.cgi</code> (avec authentification) ou
+      maintenez le bouton physique 10 secondes. La caméra repassera en mode provisionnement.
+    </div>
+
+    <div class="compat-note" style="margin-top:1rem;">
+      <strong>Compatibilité :</strong> Cette procédure fonctionne avec tout routeur WiFi WPA2 (2.4 GHz).
+      La caméra ne supporte pas le WPA3 ni le WiFi 5 GHz.
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <p>
+    <a href="https://github.com/na-ji/freebox-camera">GitHub</a> &nbsp;|&nbsp;
+    <a href="https://github.com/na-ji/freebox-camera/tree/main/docs">Documentation complète</a> &nbsp;|&nbsp;
+    Freebox F-HACAM01A = Sercomm RC8310A — SoC ARM, Linux 3.2.7
+  </p>
+  <p style="margin-top:0.4rem;">Aucune affiliation avec Iliad/Free SA. Utilisation à vos risques et périls.</p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.19.0/js/md5.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script>
+  var qrInstance = null;
+
+  function buildPayload(ssid, pwd, hostname) {
+    var ssidLen  = String(ssid.length).padStart(2, '0');
+    var pwdLen   = String(pwd.length).padStart(2, '0');
+    return ssidLen + ssid + pwdLen + pwd + hostname;
+  }
+
+  // Derives the camera's HTTP/RTSP password from the WiFi PSK.
+  // Algorithm reverse-engineered from qr_code_action (Thumb2, 0x9680–0x9784):
+  //   base64( MD5( "freeboxcam" + WiFi_PSK ) )[:8]
+  function deriveCamPassword(psk) {
+    var rawMd5 = md5('freeboxcam' + psk, null, true); // 16-byte binary string
+    var b64 = btoa(rawMd5);
+    return b64.slice(0, 8);
+  }
+
+  function generateQR(e) {
+    e.preventDefault();
+
+    var ssid     = document.getElementById('ssid').value;
+    var pwd      = document.getElementById('wifi_pwd').value;
+    var hostname = document.getElementById('hostname').value || 'cam01';
+
+    var payload = buildPayload(ssid, pwd, hostname);
+    var camPwd  = deriveCamPassword(pwd);
+
+    document.getElementById('payloadDisplay').textContent = payload;
+    document.getElementById('camPasswordDisplay').textContent = camPwd;
+    document.getElementById('instrPassword').textContent = camPwd;
+    document.querySelectorAll('.cam-pwd').forEach(function(el) { el.textContent = camPwd; });
+    document.getElementById('cam_ip').value = '';
+    document.querySelectorAll('.cam-ip').forEach(function(el) { el.textContent = '<IP>'; });
+
+    var container = document.getElementById('qrcode');
+    container.innerHTML = '';
+
+    qrInstance = new QRCode(container, {
+      text: payload,
+      width: 320,
+      height: 320,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function updateIP(val) {
+    var display = val.trim() || '<IP>';
+    document.querySelectorAll('.cam-ip').forEach(function(el) { el.textContent = display; });
+  }
+
+  function downloadQR() {
+    var canvas = document.querySelector('#qrcode canvas');
+    var img    = document.querySelector('#qrcode img');
+
+    if (canvas) {
+      var link = document.createElement('a');
+      link.download = 'freebox-cam-qr.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } else if (img) {
+      var link = document.createElement('a');
+      link.download = 'freebox-cam-qr.png';
+      link.href = img.src;
+      link.click();
+    }
+  }
+</script>
+
+</body>
+</html>
