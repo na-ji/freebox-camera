@@ -143,11 +143,21 @@ Configurez la caméra pour envoyer une requête HTTP à Home Assistant lors d'un
 mouvement :
 
 ```bash
+# 1. Activer la détection de mouvement
 curl -u freeboxcam:<MOT_DE_PASSE> \
-  "http://<IP>/adm/set_group.cgi?group=HTTP_EVENT\
-&enable=1\
-&url=http://<IP_HA>:8123/api/webhook/freebox_cam_mouvement\
-&http_event_type=motion"
+  "http://<IP>/adm/set_group.cgi?group=MOTION&md_mode=1&md_sensitivity1=8&md_threshold1=20"
+
+# 2. Configurer la notification HTTP (groupe HTTP_NOTIFY)
+curl -u freeboxcam:<MOT_DE_PASSE> \
+  "http://<IP>/adm/set_group.cgi?group=HTTP_NOTIFY\
+&http_notify=1\
+&http_url=http://<IP_HA>:8123/api/webhook/freebox_cam_mouvement\
+&http_method=1"
+```
+
+La caméra envoie un POST (ou GET si `http_method=0`) avec le corps :
+```
+event=motion,1,md_window1&mac=<MACADDR>&event_time=<YYYYMMDDHHmmss>&timezone=+0200&daylight_saving=0
 ```
 
 Dans Home Assistant, créez une automatisation déclenchée par le webhook :
@@ -232,26 +242,121 @@ La détection de mouvement est configurable directement via l'API.
 ```bash
 curl -u freeboxcam:<MOT_DE_PASSE> \
   "http://<IP>/adm/set_group.cgi?group=MOTION\
-&enable=1\
-&sensitivity=5\
-&threshold=20"
+&md_mode=1\
+&md_sensitivity1=8\
+&md_threshold1=20"
 ```
 
 | Paramètre | Valeur | Description |
 |-----------|--------|-------------|
-| `enable` | `0` ou `1` | Active/désactive la détection |
-| `sensitivity` | `1`–`10` | Sensibilité (10 = très sensible) |
-| `threshold` | `0`–`100` | Seuil de déclenchement |
+| `md_mode` | `0` ou `1` | Active/désactive la détection |
+| `md_sensitivity1`–`4` | `1`–`10` | Sensibilité par fenêtre (défaut : 8) |
+| `md_threshold1`–`4` | `0`–`127` | Seuil de déclenchement par fenêtre (défaut : 20) |
+| `md_switch1`–`4` | `0` ou `1` | Active/désactive chaque fenêtre de détection |
 
 ### Notifications HTTP sur mouvement
 
+La notification utilise deux groupes complémentaires : **`HTTP_NOTIFY`** (URL cible) et
+**`EVENT`** (règle de déclenchement). Les deux sont nécessaires.
+
+#### Étape 1 — Configurer l'URL de destination (HTTP_NOTIFY)
+
 ```bash
-# Configurer une URL de notification
 curl -u freeboxcam:<MOT_DE_PASSE> \
-  "http://<IP>/adm/set_group.cgi?group=HTTP_EVENT\
-&enable=1\
-&url=http://192.168.1.10:8123/api/webhook/cam_motion\
-&http_event_type=motion"
+  "http://<IP>/adm/set_group.cgi?group=HTTP_NOTIFY\
+&http_notify=1\
+&http_url=http://<IP_DEST>:<PORT>/\
+&http_method=1\
+&event_data_flag=1"
+```
+
+| Paramètre | Valeur | Description |
+|-----------|--------|-------------|
+| `http_notify` | `0` ou `1` | Active/désactive les notifications |
+| `http_url` | URL | URL cible |
+| `http_method` | `0` ou `1` | `0` = GET, `1` = POST (défaut) |
+| `http_user` | chaîne | Identifiant HTTP Basic (optionnel) |
+| `http_password` | chaîne | Mot de passe HTTP Basic (optionnel) |
+| `event_data_flag` | `0` ou `1` | Inclure les métadonnées (mac, heure, timezone) |
+
+#### Étape 2 — Configurer la règle d'événement (EVENT)
+
+Le groupe `EVENT` lie la détection de mouvement à l'action de notification. La règle utilise
+le groupe `event1_entry` (jusqu'à 10 entrées : `event1_entry` … `event10_entry`).
+
+```bash
+curl -u freeboxcam:<MOT_DE_PASSE> \
+  "http://<IP>/adm/set_group.cgi?group=EVENT\
+&event1_entry=is=0|et=1|acts=httpn:1|es=0|ei=0|ea=jpg:1,0,5,0|en=motion1"
+```
+
+Format de `event1_entry` (champs séparés par `|`) :
+
+| Champ | Valeur confirmée | Description |
+|-------|-----------------|-------------|
+| `is` | `0` | Schedule inactif (0 = toujours actif) |
+| `et` | `1` | Type de déclencheur (1 = détection de mouvement vidéo) |
+| `acts` | `httpn:1` | Actions activées — le firmware étend automatiquement vers la liste complète des 14 actions |
+| `es` | `0` | Event schedule |
+| `ei` | `0` | Intervalle entre événements en secondes (0 = pas de limite) ; max 86400 |
+| `ea` | `jpg:1,0,5,0` | Configuration JPEG : `jpg:<qualité>,<pré-capture>,<post-capture>,0` — `qualité` doit être un entier ≥ 1 |
+| `en` | `motion1` | Nom de l'événement (libre) |
+
+> **Note technique** : le champ `ea` passe par `atoi()` côté firmware. La valeur après `jpg:`
+> doit être un entier non nul (ex. `1`–`99`). Une chaîne non numérique ou `0` provoque l'erreur
+> `cgi_event.c(395)`.
+
+> **Limitation : pas d'image JPEG dans la notification.** L'action `httppost` (qui est censée
+> joindre un snapshot JPEG au POST) envoie systématiquement un corps vide (`Content-Length: 0`).
+> La cause : l'encodeur JPEG continu est désactivé (`[JPEG] mode=0`) dans la configuration
+> stockée en flash. Le tampon d'images que le démon d'événements tente de lire contient donc
+> toujours 0 images. Ce paramètre ne peut pas être modifié via l'API (le groupe `JPEG` est en
+> lecture seule) ni via la partition flash (chiffrée AES, clé propre à l'appareil).
+> L'action `httpn` (notification texte sans pièce jointe) fonctionne correctement.
+
+**Payload envoyé** (corps POST ou paramètres GET) :
+```
+event=motion,1,md_window1&mac=AABBCCDDEEFF&event_time=20260417120000&timezone=+0200&daylight_saving=0
+```
+
+Valeurs du champ `event` :
+
+| Déclencheur | Valeur |
+|-------------|--------|
+| Mouvement | `motion,<channel>,md_window<bitmask>` |
+| Son | `audio,<channel>` |
+| Entrée I/O | `io,<channel>,in<bitmask>` |
+| Périodique | `period` |
+
+#### Alternative — Script motmon.sh (accès root requis)
+
+Si vous disposez d'un accès root (via test.cgi), un script shell plus simple suffit.
+Il surveille `/tmp/onvif_eventtime` (fichier 4 octets mis à jour à chaque mouvement détecté) :
+
+```bash
+#!/bin/sh
+MAC="<MACADDR>"  # MAC de la caméra (sans séparateurs)
+PREV=$(od -A n -t d4 /tmp/onvif_eventtime 2>/dev/null | tr -d " ")
+while true; do
+  sleep 2
+  CUR=$(od -A n -t d4 /tmp/onvif_eventtime 2>/dev/null | tr -d " ")
+  if [ "$CUR" != "$PREV" ] && [ -n "$CUR" ]; then
+    PREV=$CUR
+    TIME=$(date +%Y%m%d%H%M%S)
+    wget -q --post-data="event=motion,1,md_window1&mac=${MAC}&event_time=${TIME}&timezone=+0200&daylight_saving=0" \
+      http://<IP_DEST>:<PORT>/ -O /dev/null
+  fi
+done
+```
+
+Déploiement (une fois root) :
+
+```bash
+# Copier le script sur la caméra et le lancer
+curl -u freeboxcam:<MOT_DE_PASSE> \
+  "http://<IP>/adm/test.cgi?action=ftp_test&ftp_server=127.0.0.1\
+&ftp_account=a&ftp_passwd=a\
+&ftp_path=%2F%24(cat%20>%20%2Ftmp%2Fmotmon.sh%20<<'EOF'%0A...%0AEOF%0A%2Fbin%2Fsh%20%2Ftmp%2Fmotmon.sh%20%26)&ftp_port=21&ftp_passive=0"
 ```
 
 ### Notification par e-mail

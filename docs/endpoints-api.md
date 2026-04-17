@@ -311,12 +311,12 @@ avec leurs principaux paramètres.
 | `WIRELESS` | Configuration WiFi | `ssid`, `wpa_ascii`, `channel`, `mode`, `encrypt` |
 | `RTSP_RTP` | Serveur RTSP/RTP | `rtsp_port`, `rtp_port_start`, `multicast_enable` |
 | `HTTP` | Serveur HTTP | `http_port`, `https_port`, `auth_type` |
-| `HTTP_NOTIFY` | Notifications HTTP | `url`, `method`, `event_type`, `interval` |
-| `HTTP_EVENT` | Événements HTTP (mouvement, etc.) | `enable`, `url`, `http_event_type` |
+| `HTTP_NOTIFY` | Notifications HTTP GET/POST sur événement | `http_notify`, `http_url`, `http_method` (0=GET, 1=POST), `http_user`, `http_password`, `event_data_flag` |
+| `HTTP_EVENT` | Envoi de snapshots JPEG vers serveur HTTP/FTP | `http_event_en`, `http_post_en`, `http_post_url`, `http_post_user`, `http_post_pass` |
 | `EMAIL` | Alertes par e-mail | `smtp_server`, `smtp_port`, `from`, `to`, `tls_enable` |
 | `FTP` | Transfert FTP (captures) | `ftp_server`, `ftp_port`, `ftp_account`, `ftp_passwd`, `ftp_path` |
-| `MOTION` | Détection de mouvement | `enable`, `sensitivity`, `threshold`, `window_*` |
-| `AUDIO` | Configuration audio | `enable`, `volume`, `codec` |
+| `MOTION` | Détection de mouvement | `md_mode`, `md_sensitivity1`–`4`, `md_threshold1`–`4`, `md_switch1`–`4`, `md_window1`–`4` |
+| `AUDIO` | Configuration audio | `audio_in`, `in_volume`, `au_trigger_en`, `au_trigger_volume`, `au_trigger_method` |
 | `EVENT` | Planification des événements | `schedule_enable`, `event_trigger` |
 | `UPNP` | UPnP / IGD | `enable`, `friendly_name` |
 | `BONJOUR` | mDNS/Bonjour | `enable`, `service_name` |
